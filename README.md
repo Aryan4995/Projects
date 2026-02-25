@@ -1,4 +1,4 @@
-# quant-projects
+
 # Quantitative Trading & Low-Latency Infrastructure
 **Status:** Active Development / Refactoring core C++ engines for public release.
 
