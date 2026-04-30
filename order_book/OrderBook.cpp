@@ -1,90 +1,82 @@
 #include "OrderBook.h"
 
-// 1. ADD ORDER FUNCTION
-// Takes an order and puts it into the correct list (Bids or Asks)
 void OrderBook::addOrder(int id, double price, int quantity, Side side) {
-    // Create the new order
     Order newOrder = {id, price, quantity, side};
 
-    // Add it to the correct side of the book
+    // Route the order to the correct queue
     if (side == Side::BUY) {
-        // Bids: Buyers want low prices, but we sort High->Low (std::greater)
-        // .push_back adds to the END of the list (Time Priority)
         bids[price].push_back(newOrder);
     } else {
-        // Asks: Sellers want high prices, we sort Low->High (Standard)
         asks[price].push_back(newOrder);
     }
     
-    // Every time an order is added, we immediately check if a trade is possible
+    // Instantly check if this new order triggers a trade
     match();
 }
 
-// 2. MATCHING ENGINE (The Core Logic)
-// Checks if the Best Buyer and Best Seller agree on a price
 void OrderBook::match() {
-    // Keep looping as long as there are orders on both sides
+    // Keep looking for trades as long as we have both buyers and sellers waiting
     while (!bids.empty() && !asks.empty()) {
-        
-        // Peek at the top of both books
-        auto bestBidIter = bids.begin();  // Highest Buy Price
-        auto bestAskIter = asks.begin();  // Lowest Sell Price
+        auto bestBidIter = bids.begin(); 
+        auto bestAskIter = asks.begin();
 
-        // CHECK PRICE: If Buyer's Price is LOWER than Seller's Price, no trade.
+        // If the best buyer is offering LESS than the best seller wants, trading stops.
         if (bestBidIter->first < bestAskIter->first) {
-            break; // Stop matching
+            break; 
         }
 
-        // EXECUTE TRADE
-        // Get the actual Order objects from the front of the list
+        // We have a match! Let's grab the actual tickets at the front of the line
         Order& buyOrder = bestBidIter->second.front();
         Order& sellOrder = bestAskIter->second.front();
 
-        // Calculate how much can be traded (the smaller of the two quantities)
+        // Trade exactly as much as the smaller order allows
         int tradeQty = std::min(buyOrder.quantity, sellOrder.quantity);
 
-        // Print the trade execution to the console
-        std::cout << "TRADE EXEC: " << tradeQty << " shares @ $" << sellOrder.price << std::endl;
+        // --- HUMANIZED CONSOLE OUTPUT ---
+        std::cout << "[TRADE MATCHED] 🤝 " << tradeQty 
+                  << " shares sold at $" << sellOrder.price 
+                  << " (Buyer ID: " << buyOrder.id 
+                  << " -> Seller ID: " << sellOrder.id << ")\n";
 
-        // UPDATE QUANTITIES (Partial Fills)
+        // Save it permanently to our CSV file
+        logger.logTrade(buyOrder.id, sellOrder.price, tradeQty, "BUY");
+
+        // Deduct the traded shares from both parties
         buyOrder.quantity -= tradeQty;
         sellOrder.quantity -= tradeQty;
 
-        // CLEANUP: If an order is fully filled (0 qty), remove it from the list
+        // If the buyer got all their shares, remove them from the line
         if (buyOrder.quantity == 0) {
-            bestBidIter->second.pop_front(); // Remove from list
-            // If the list is now empty, remove the price level entirely
+            bestBidIter->second.pop_front();
             if (bestBidIter->second.empty()) {
-                bids.erase(bestBidIter);
+                bids.erase(bestBidIter); // Clean up the empty price level
             }
         }
 
+        // If the seller sold all their shares, remove them from the line
         if (sellOrder.quantity == 0) {
             bestAskIter->second.pop_front();
             if (bestAskIter->second.empty()) {
-                asks.erase(bestAskIter);
+                asks.erase(bestAskIter); // Clean up the empty price level
             }
         }
-        
-        // The loop repeats automatically to see if the remaining order can match again
     }
 }
 
-// 3. PRINT BOOK (Visualization)
-// Shows us what the market looks like right now
 void OrderBook::printBook() {
-    std::cout << "\n--- ASKS (Sellers) ---\n";
-    // Iterate backwards (rbegin) to show highest prices at the top
+    std::cout << "\n========== CURRENT MARKET ==========\n";
+    std::cout << "🔻 ASKS (Sellers Waiting)\n";
     for (auto it = asks.rbegin(); it != asks.rend(); ++it) {
-        std::cout << "$" << it->first << " : ";
-        for (const auto& o : it->second) std::cout << "(" << o.quantity << ") ";
+        std::cout << "   Price: $" << it->first << " | Queue: ";
+        for (const auto& o : it->second) std::cout << "[" << o.quantity << " shares] ";
         std::cout << "\n";
     }
-    std::cout << "--- BIDS (Buyers) ---\n";
+    std::cout << "------------------------------------\n";
+    std::cout << "🟩 BIDS (Buyers Waiting)\n";
     for (const auto& [price, list] : bids) {
-        std::cout << "$" << price << " : ";
-        for (const auto& o : list) std::cout << "(" << o.quantity << ") ";
+        std::cout << "   Price: $" << price << " | Queue: ";
+        for (const auto& o : list) std::cout << "[" << o.quantity << " shares] ";
         std::cout << "\n";
     }
-    std::cout << "----------------------\n\n";
+    std::cout << "====================================\n\n";
 }
