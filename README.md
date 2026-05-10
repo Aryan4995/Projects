@@ -1,40 +1,37 @@
 # Quantitative Trading & Low-Latency Infrastructure
-**Status:** Active Development / Refactoring core C++ engines for public release.
 
-This repository contains the core infrastructure for a high-frequency trading simulation environment, including a custom C++ Limit Order Book, execution agents, and tick-level backtesting frameworks. 
+**Status:** Active Development (Phase 3: Execution Algorithms)
 
-*Note: Several modules are currently undergoing memory-optimization refactoring and parameter tuning. Full code pushes are ongoing.*
+This repository contains the ongoing construction of a high-frequency trading simulation environment. The architecture is designed to be highly modular, separating heavy C++ computation (matching engine) from algorithmic execution and risk management.
 
----
+Currently, the core foundation (the Limit Order Book) and initial execution algorithms (TWAP) are deployed, and we are systematically building out the surrounding microservices.
 
-## 🏗️ Core Architecture Modules
+## 🟢 Deployed Modules
 
-### 1. [order_book/](./order_book) : Limit Order Book & Microstructure Analytics
-*(Status: Refactoring C++ memory management and L2 parsing logic)*
-* Engineered a low-latency Limit Order Book (LOB) matching engine in C++, utilizing custom doubly-linked lists and hash maps to enforce strict price-time (FIFO) priority.
+### 1. `order_book/` (Core Matching Engine & Data Logger)
+* **Status:** Fully Operational
+* Engineered a low-latency Limit Order Book (LOB) matching engine in C++.
+* Utilizes custom doubly-linked lists and hash maps (`std::map`, `std::list`) to enforce strict price-time (FIFO) priority.
 * Achieves O(1) insertions, cancellations, and partial fill updates.
-* **Next Push:** Integrating historical Level 2 tick data parser to reconstruct full market depth and analyze latency-driven slippage.
+* **Data Pipeline:** Features a custom C++ data logger (`Logger.h`) that outputs real-time execution data (`trades.csv`) matching standard Binance historical tick data formats.
 
-### 2. [strategy/](./strategy) & [oms/](./oms) : High-Frequency Market Making Engine
-*(Status: Tuning Avellaneda-Stoikov risk parameters for out-of-sample testing)*
-* Developed a market-making agent designed to operate directly on the simulated LOB to strictly manage inventory risk.
-* Implements adverse selection safeguards by calculating real-time Order Flow Imbalance (OFI) to detect toxic flow.
-* **Next Push:** Backtest results of quoting logic across varying volatility regimes to balance fill rates against directional exposure.
+### 2. `strategy/` (Algorithmic Execution)
+* **Status:** Active (Simulating inside the C++ Engine)
+* Developing institutional execution algorithms to minimize market impact.
+* **Current Focus:** Time-Weighted Average Price (TWAP) bots designed to slice large block orders and hide footprints from predatory liquidity takers, contrasting against high-slippage "Whale" market orders.
 
-### 3. [backtester/](./backtester) : Tick-Level Statistical Arbitrage
-*(Status: Optimizing memory footprint for high-resolution tick data streams)*
-* Built an event-driven pairs trading backtester optimized for tick data, utilizing the Johansen test for robust multivariate cointegration.
-* Executes walk-forward optimization and rolling out-of-sample testing to verify mean-reversion stability.
-* **Next Push:** Incorporating realistic market friction, transaction costs, and spread-crossing logic.
+## 🚧 Development Roadmap (Architecture Initialized)
 
-### 4. [volatility_surface/](./volatility_surface) : Local Volatility Calibration
-*(Status: Finalizing Dupire finite difference grids)*
-* Constructs a local volatility surface from delayed options data, enforcing strict arbitrage-free conditions.
-* Calibrates Dupire's formula using finite differences to extract local volatility grids.
-* **Next Push:** Stress-testing boundary breakdowns for short-dated OTM puts.
+The following modules have been architected into the repository structure and are actively undergoing development:
 
----
+* **`oms/` (Order Management System):** Will track order lifecycles (New, Partially Filled, Filled, Canceled) asynchronously.
+* **`event_engine/`:** The backbone message bus to route market data events between the strategies and the LOB.
+* **`risk_manager/`:** A pre-trade risk layer to intercept toxic flow and enforce inventory limits.
+* **`backtester/` & `monte_carlo/`:** Python-based quantitative analytics modules optimized for ingesting the high-resolution tick data (`trades.csv`) produced by the C++ engine.
+* **`data/` & `replay/`:** Pipelines to ingest historical Level 2 market depth data.
+* **`volatility_surface/`:** Local volatility calibration grids for options pricing.
+
 ## ⚙️ Tech Stack
-* **Core Engine:** C++ (STL, Low-Latency Memory Management)
-* **Analytics & Backtesting:** Python, Pandas, SciPy, Statsmodels
-* **Focus:** Market Microstructure, O(1) Data Structures, Event-Driven Architecture
+* **Core Execution Engine:** C++17 (STL, Low-Latency Memory Management)
+* **Target Analytics Stack:** Python, Pandas, Matplotlib
+* **Design Focus:** Market Microstructure, O(1) Data Structures, Algorithmic Execution
